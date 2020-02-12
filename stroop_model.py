@@ -33,11 +33,13 @@ run_config.update({
 
     "proportion_word_training": 0.9,
     
-    "num_epochs": 1000,
+    "num_epochs": 10000,
+    "early_stopping_thresh": 1e-4,
 
-
-    "init_learning_rate": 1e-3,
+    "init_learning_rate": 3e-4,
     "lr_decay": 1.,
+
+    "num_runs": 25,
 })
 
 architecture_config = default_architecture_config.default_architecture_config
@@ -182,6 +184,8 @@ class stroop_model(HoMM_model.HoMM_model):
         if print_losses:
             print(formatted_losses)
 
+        return base_losses
+
     def run_training(self):
         """Train model."""
 
@@ -205,7 +209,10 @@ class stroop_model(HoMM_model.HoMM_model):
                 self.base_train_step(task, learning_rate)
 
             if epoch % eval_every == 0:
-                self.run_eval(epoch)
+                scores = self.run_eval(epoch)
+                if scores[0] < run_config["early_stopping_thresh"] and scores[4] < run_config["early_stopping_thresh"]:
+                    print("Early stop!")
+                    break
 
             if epoch % lr_decays_every == 0 and epoch > 0:
                 if learning_rate > min_learning_rate:
