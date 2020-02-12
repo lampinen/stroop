@@ -34,9 +34,9 @@ run_config.update({
     "proportion_word_training": 0.9,
     
     "num_epochs": 10000,
-    "early_stopping_thresh": 1e-4,
+    "early_stopping_thresh": 2e-1,
 
-    "init_learning_rate": 3e-4,
+    "init_learning_rate": 5e-4,
     "lr_decay": 1.,
 
     "num_runs": 25,
@@ -202,6 +202,9 @@ class stroop_model(HoMM_model.HoMM_model):
 
         tasks = ["word", "color"] 
 
+        word_only = run_config["proportion_word_training"] == 1.
+        color_only = run_config["proportion_word_training"] == 0.
+
         for epoch in range(1, num_epochs+1):
             order = np.random.permutation(len(tasks))
             for task_i in order:
@@ -210,7 +213,9 @@ class stroop_model(HoMM_model.HoMM_model):
 
             if epoch % eval_every == 0:
                 scores = self.run_eval(epoch)
-                if scores[0] < run_config["early_stopping_thresh"] and scores[4] < run_config["early_stopping_thresh"]:
+                words_learned = scores[0] < run_config["early_stopping_thresh"] and scores[1] == 1.
+                colors_learned = scores[4] < run_config["early_stopping_thresh"] and scores[5] == 1.
+                if (words_learned and colors_learned) or (words_learned and word_only) or (colors_learned and color_only):
                     print("Early stop!")
                     break
 
@@ -220,10 +225,10 @@ class stroop_model(HoMM_model.HoMM_model):
 
 
 ## running stuff
-for pwt in np.arange(0., 1.1, 0.1):
-    run_config["proportion_word_training"] = pwt
-    run_config["output_dir"] = run_config["output_dir_format"].format(run_config["proportion_word_training"])
-    for run_i in range(run_config["num_runs"]):
+for run_i in range(run_config["num_runs"]):
+    for pwt in np.arange(0., 1.1, 0.1):
+        run_config["proportion_word_training"] = pwt
+        run_config["output_dir"] = run_config["output_dir_format"].format(run_config["proportion_word_training"])
         np.random.seed(run_i)
         tf.set_random_seed(run_i)
         run_config["this_run"] = run_i
