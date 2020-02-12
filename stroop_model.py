@@ -27,16 +27,16 @@ incongruent_stimuli = [1, 2]
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir_format": "stroop_results_pw_{}/",
+    "output_dir_format": "stroop_results_narrow_pw_{}/",
 
     "train_meta": False,
 
     "proportion_word_training": 0.9,
     
     "num_epochs": 10000,
-    "early_stopping_thresh": 2e-1,
+    "early_stopping_thresh": 5e-1,
 
-    "init_learning_rate": 5e-4,
+    "init_learning_rate": 1e-2,
     "lr_decay": 1.,
 
     "num_runs": 25,
@@ -48,15 +48,14 @@ architecture_config.update({
     "input_shape": [4],
     "output_shape": [2],
 
-
-    "z_dim": 64,
+    "z_dim": 8,
 
     "M_num_hidden": 64,
     "H_num_hidden": 64,
 
     "F_num_hidden_layers": 0,  # linear task network
 
-    "optimizer": "RMSProp",
+    "optimizer": "SGD",
     
     "meta_batch_size": 2,
     #"F_num_hidden": 32,
@@ -204,6 +203,11 @@ class stroop_model(HoMM_model.HoMM_model):
 
         word_only = run_config["proportion_word_training"] == 1.
         color_only = run_config["proportion_word_training"] == 0.
+
+        if word_only:
+            tasks = ["word"]
+        elif color_only:
+            tasks = ["color"]
 
         for epoch in range(1, num_epochs+1):
             order = np.random.permutation(len(tasks))
