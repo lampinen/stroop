@@ -1,0 +1,107 @@
+---
+title: "Stroop analysis"
+author: "Andrew Lampinen"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+results_format = "../results/stroop_results_%s_pw_%.1f/"
+
+proportion_words_vals = (0:10)/10
+run_types = c("sgd", "narrow")
+
+num_runs = 25
+```
+
+```{r message=FALSE, warning=FALSE}
+d = replicate(num_runs * length(run_types) * length(proportion_words_vals), data.frame())
+index = 1
+for (this_run_type in run_types) {
+  for (pw in proportion_words_vals) {
+    this_dir = sprintf(results_format, this_run_type, pw)
+    print(this_dir)  
+    for (run_i in 0:(num_runs-1)) {
+      filename = paste(this_dir,
+                       sprintf("run%i_losses.csv", run_i),
+                       sep="")
+      if (!file.exists(filename)) {
+        next
+      }
+      this_data = read_csv(filename)
+      this_data = this_data %>% 
+        mutate(proportion_words=pw,
+               run_type=this_run_type,
+               run=run_i)
+      d[[index]] = this_data
+      index = index + 1
+    }
+  }
+}
+d = bind_rows(d)
+```
+
+# some manipulation
+
+```{r}
+d = d %>%
+  gather(measurement, value, -epoch, -proportion_words, -run, -run_type) %>%
+  separate(measurement, c("task", "execution_type", "measurement"), sep=":") %>%
+  spread(measurement, value)
+```
+
+
+# simple plot
+
+```{r}
+theme_set(theme_classic())
+```
+
+
+```{r}
+ggplot(
+  d %>% 
+    filter(run_type == "sgd") %>%
+    group_by(proportion_words, run) %>%
+    filter(epoch == max(epoch),
+           execution_type == "from_zeros") %>%
+    ungroup() %>%
+    select(-loss) %>%
+    spread(task, accuracy) %>%
+    mutate(word_bias = 2*(word - color)),
+  aes(x=proportion_words, y=word_bias)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_ribbon(stat="summary",
+              fun.data="mean_cl_boot",
+              alpha=0.2) +
+  labs(x="Proportion of training on word task",
+       y="Bias toward word responses at optimal stopping")
+ggsave("plots/stroop_bias_by_proportion_words_wide.png")
+```
+
+```{r}
+ggplot(
+  d %>% 
+    filter(run_type == "narrow") %>%
+    group_by(proportion_words, run) %>%
+    filter(epoch == max(epoch),
+           execution_type == "from_zeros") %>%
+    ungroup() %>%
+    select(-loss) %>%
+    spread(task, accuracy) %>%
+    mutate(word_bias = 2*(word - color)),
+  aes(x=proportion_words, y=word_bias)) +
+  geom_line(stat="summary",
+            fun.y="mean") +
+  geom_ribbon(stat="summary",
+              fun.data="mean_cl_boot",
+              alpha=0.2) +
+  labs(x="Proportion of training on word task",
+       y="Bias toward word responses at optimal stopping")
+ggsave("plots/stroop_bias_by_proportion_words_narrow.png")
+```
+
