@@ -48,7 +48,7 @@ architecture_config.update({
     "input_shape": [4],
     "output_shape": [2],
 
-    "z_dim": 8,
+    "z_dim": 32,
 
     "M_num_hidden": 64,
     "H_num_hidden": 64,
@@ -60,6 +60,17 @@ architecture_config.update({
     "meta_batch_size": 2,
     #"F_num_hidden": 32,
 })
+
+if True:  # enable for task conditioned
+    architecture_config.update({
+        "task_conditioned_not_hyper": True,
+
+        "F_num_hidden_layers": 2,
+    })
+
+    run_config.update({
+        "output_dir_format": "stroop_results_cnh_pw_{}/"
+    })
 
 def xe_loss(output_logits, targets):
     return tf.reduce_mean(
