@@ -12,7 +12,7 @@ library(tidyverse)
 results_format = "../results/stroop_results_%s_pw_%.1f/"
 
 proportion_words_vals = (0:10)/10
-run_types = c("sgd", "narrow")
+run_types = c("sgd", "narrow", "cnh")
 
 num_runs = 25
 ```
@@ -62,46 +62,25 @@ theme_set(theme_classic())
 
 
 ```{r}
-ggplot(
-  d %>% 
-    filter(run_type == "sgd") %>%
-    group_by(proportion_words, run) %>%
-    filter(epoch == max(epoch),
-           execution_type == "from_zeros") %>%
-    ungroup() %>%
-    select(-loss) %>%
-    spread(task, accuracy) %>%
-    mutate(word_bias = 2*(word - color)),
-  aes(x=proportion_words, y=word_bias)) +
-  geom_line(stat="summary",
-            fun.y="mean") +
-  geom_ribbon(stat="summary",
-              fun.data="mean_cl_boot",
-              alpha=0.2) +
-  labs(x="Proportion of training on word task",
-       y="Bias toward word responses at optimal stopping")
-ggsave("plots/stroop_bias_by_proportion_words_wide.png")
+for (this_run_type in run_types) {
+  ggplot(
+    d %>% 
+      filter(run_type == this_run_type) %>%
+      group_by(proportion_words, run) %>%
+      filter(epoch == max(epoch),
+             execution_type == "from_zeros") %>%
+      ungroup() %>%
+      select(-loss) %>%
+      spread(task, accuracy) %>%
+      mutate(word_bias = 2*(word - color)),
+    aes(x=proportion_words, y=word_bias)) +
+    geom_line(stat="summary",
+              fun.y="mean") +
+    geom_ribbon(stat="summary",
+                fun.data="mean_cl_boot",
+                alpha=0.2) +
+    labs(x="Proportion of training on word task",
+         y="Bias toward word responses at optimal stopping")
+  ggsave(sprintf("plots/stroop_bias_by_proportion_words_%s.png", this_run_type))
+}
 ```
-
-```{r}
-ggplot(
-  d %>% 
-    filter(run_type == "narrow") %>%
-    group_by(proportion_words, run) %>%
-    filter(epoch == max(epoch),
-           execution_type == "from_zeros") %>%
-    ungroup() %>%
-    select(-loss) %>%
-    spread(task, accuracy) %>%
-    mutate(word_bias = 2*(word - color)),
-  aes(x=proportion_words, y=word_bias)) +
-  geom_line(stat="summary",
-            fun.y="mean") +
-  geom_ribbon(stat="summary",
-              fun.data="mean_cl_boot",
-              alpha=0.2) +
-  labs(x="Proportion of training on word task",
-       y="Bias toward word responses at optimal stopping")
-ggsave("plots/stroop_bias_by_proportion_words_narrow.png")
-```
-
