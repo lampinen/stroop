@@ -129,14 +129,14 @@ class stroop_model(HoMM_model.HoMM_model):
             other_task_data = stroop_targets_color 
         
         if mix_num > 0:
-            this_dataset_y = np.zeros([4 + mix_num % 2, 2], dtype=np.float32)
-            this_dataset_x = np.zeros([4 + mix_num % 2, 4], dtype=np.float32)
-            num_other_task = mix_num // 2 + mix_num % 2 
-            num_this_task = 4 - (mix_num // 2)
+            this_dataset_y = np.zeros([8, 2], dtype=np.float32)
+            this_dataset_x = np.zeros([8, 4], dtype=np.float32)
+            num_other_task = mix_num
+            num_this_task = 8 - mix_num 
             this_task_indices = np.random.choice(4, num_this_task, 
-                                                 replace=False)
+                                                 replace=True)
             other_task_indices = np.random.choice(4, num_other_task,
-                                                  replace=False)
+                                                  replace=True)
             this_dataset_y[:num_this_task] = task_data[this_task_indices, :] 
             this_dataset_y[num_this_task:] = other_task_data[other_task_indices, :] 
             this_dataset_x[:num_this_task] = stroop_inputs[this_task_indices, :] 
