@@ -188,8 +188,8 @@ class stroop_model(HoMM_model.HoMM_model):
                     fetches = [self.total_base_loss, self.base_accuracy]
                 res += self.sess.run(fetches, feed_dict=feed_dict)
 
-                names += [name.format("standard", mix_num, "loss"),
-                          name.format("standard", mix_num, "accuracy")]
+                names += [name.format(call_type, mix_num, "loss"),
+                          name.format(call_type, mix_num, "accuracy")]
 
 
         return names, res
