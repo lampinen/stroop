@@ -27,14 +27,14 @@ incongruent_stimuli = [1, 2]
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir_format": "stroop_results_narrow_pw_{}/",
+    "output_dir_format": "stroop_mixing_results_pw_%.1f/",
 
     "train_meta": False,
 
     "proportion_word_training": 0.9,
     
     "num_epochs": 10000,
-    "early_stopping_thresh": 5e-1,
+    "early_stopping_thresh": 1e-1,
 
     "init_learning_rate": 1e-2,
     "lr_decay": 1.,
@@ -61,7 +61,7 @@ architecture_config.update({
     #"F_num_hidden": 32,
 })
 
-if True:  # enable for task conditioned
+if False:  # enable for task conditioned
     architecture_config.update({
         "task_conditioned_not_hyper": True,
 
@@ -69,7 +69,7 @@ if True:  # enable for task conditioned
     })
 
     run_config.update({
-        "output_dir_format": "stroop_results_cnh_pw_{}/"
+        "output_dir_format": "stroop_mixing_results_cnh_pw_%.1f/"
     })
 
 def xe_loss(output_logits, targets):
@@ -116,15 +116,37 @@ class stroop_model(HoMM_model.HoMM_model):
         self.base_fed_emb_accuracy =  _logits_to_accuracy(self.base_fed_emb_output)
 
 
-    def build_feed_dict(self, task, from_zeros=False, lr=None,
+    def build_feed_dict(self, task, from_zeros=False, lr=None, mix_num=0,
                         call_type="base_standard_train"):
         feed_dict = {}
         base_or_meta, call_type, train_or_eval = call_type.split("_")
-        feed_dict[self.base_input_ph] = stroop_inputs
+
         if task == "word":
-            feed_dict[self.base_target_ph] = stroop_targets_word 
+            task_data = stroop_targets_word 
+            other_task_data = stroop_targets_color 
         else:
-            feed_dict[self.base_target_ph] = stroop_targets_color 
+            task_data = stroop_targets_word 
+            other_task_data = stroop_targets_color 
+        
+        if mix_num > 0:
+            this_dataset_y = np.zeros([4 + mix_num % 2, 2], dtype=np.float32)
+            this_dataset_x = np.zeros([4 + mix_num % 2, 4], dtype=np.float32)
+            num_other_task = mix_num // 2 + mix_num % 2 
+            num_this_task = 4 - (mix_num // 2)
+            this_task_indices = np.random.choice(4, num_this_task, 
+                                                 replace=False)
+            other_task_indices = np.random.choice(4, num_other_task,
+                                                  replace=False)
+            this_dataset_y[:num_this_task] = task_data[this_task_indices, :] 
+            this_dataset_y[num_this_task:] = other_task_data[other_task_indices, :] 
+            this_dataset_x[:num_this_task] = stroop_inputs[this_task_indices, :] 
+            this_dataset_x[num_this_task:] = stroop_inputs[other_task_indices, :] 
+        else:
+            this_dataset_y = task_data
+            this_dataset_x = stroop_inputs 
+
+        feed_dict[self.base_input_ph] = this_dataset_x 
+        feed_dict[self.base_target_ph] = this_dataset_y
 
         if from_zeros:
             feed_dict[self.feed_embedding_ph] = np.zeros(
@@ -147,23 +169,30 @@ class stroop_model(HoMM_model.HoMM_model):
         return feed_dict
 
     def base_eval(self, task):
+
+        name = str(task) + ":{}:{}:{}"
         res = []
+        names = []
         for from_zeros in [False, True]:
-            feed_dict = self.build_feed_dict(task, from_zeros=from_zeros,
-                                             call_type="base_standard_eval")
-            if from_zeros:
-                fetches = [self.total_base_fed_emb_loss, self.base_fed_emb_accuracy]
-            else:
-                fetches = [self.total_base_loss, self.base_accuracy]
-            res += self.sess.run(fetches, feed_dict=feed_dict)
+            for mix_num in range(9):
+                if from_zeros == True and mix_num > 0:
+                    break
+                feed_dict = self.build_feed_dict(task, from_zeros=from_zeros, 
+                                                 mix_num=mix_num,
+                                                 call_type="base_standard_eval")
+                if from_zeros:
+                    call_type = "from_zeros"
+                    fetches = [self.total_base_fed_emb_loss, self.base_fed_emb_accuracy]
+                else:
+                    call_type = "standard"
+                    fetches = [self.total_base_loss, self.base_accuracy]
+                res += self.sess.run(fetches, feed_dict=feed_dict)
+
+                names += [name.format("standard", mix_num, "loss"),
+                          name.format("standard", mix_num, "accuracy")]
 
 
-        name = str(task) + ":{}:{}"
-        return ([name.format("standard", "loss"),
-                 name.format("standard", "accuracy"),
-                 name.format("from_zeros", "loss"),
-                 name.format("from_zeros", "accuracy")],
-                res)
+        return names, res
 
     def run_base_eval(self):
         """Run evaluation on basic tasks."""
@@ -241,9 +270,9 @@ class stroop_model(HoMM_model.HoMM_model):
 
 ## running stuff
 for run_i in range(run_config["num_runs"]):
-    for pwt in np.arange(0., 1.1, 0.1):
+    for pwt in [0.5, 0.9, 0.1]:
         run_config["proportion_word_training"] = pwt
-        run_config["output_dir"] = run_config["output_dir_format"].format(run_config["proportion_word_training"])
+        run_config["output_dir"] = run_config["output_dir_format"] % run_config["proportion_word_training"]
         np.random.seed(run_i)
         tf.set_random_seed(run_i)
         run_config["this_run"] = run_i
