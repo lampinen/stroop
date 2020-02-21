@@ -27,14 +27,14 @@ incongruent_stimuli = [1, 2]
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir_format": "stroop_mixing_results_pw_%.1f/",
+    "output_dir_format": "stroop_mixing_results_wider_earlier_pw_%.2f/",
 
     "train_meta": False,
 
     "proportion_word_training": 0.9,
     
-    "num_epochs": 10000,
-    "early_stopping_thresh": 1e-1,
+    "num_epochs": 20000,
+    "early_stopping_thresh": 3e-1,
 
     "init_learning_rate": 1e-2,
     "lr_decay": 1.,
@@ -69,7 +69,7 @@ if False:  # enable for task conditioned
     })
 
     run_config.update({
-        "output_dir_format": "stroop_mixing_results_cnh_pw_%.1f/"
+        "output_dir_format": "stroop_mixing_results_cnh_pw_%.2f/"
     })
 
 def xe_loss(output_logits, targets):
@@ -125,12 +125,16 @@ class stroop_model(HoMM_model.HoMM_model):
             task_data = stroop_targets_word 
             other_task_data = stroop_targets_color 
         else:
-            task_data = stroop_targets_word 
-            other_task_data = stroop_targets_color 
+            task_data = stroop_targets_color
+            other_task_data = stroop_targets_word
         
-        if mix_num > 0:
-            this_dataset_y = np.zeros([8, 2], dtype=np.float32)
-            this_dataset_x = np.zeros([8, 4], dtype=np.float32)
+        if mix_num == 0 or from_zeros:
+            this_dataset_y = task_data
+            this_dataset_x = stroop_inputs 
+
+        else:
+            this_dataset_y = np.zeros([12, 2], dtype=np.float32)
+            this_dataset_x = np.zeros([12, 4], dtype=np.float32)
             num_other_task = mix_num
             num_this_task = 8 - mix_num 
             this_task_indices = np.random.choice(4, num_this_task, 
@@ -138,12 +142,12 @@ class stroop_model(HoMM_model.HoMM_model):
             other_task_indices = np.random.choice(4, num_other_task,
                                                   replace=True)
             this_dataset_y[:num_this_task] = task_data[this_task_indices, :] 
-            this_dataset_y[num_this_task:] = other_task_data[other_task_indices, :] 
+            this_dataset_y[num_this_task:8] = other_task_data[other_task_indices, :] 
+            this_dataset_y[8:] = task_data
             this_dataset_x[:num_this_task] = stroop_inputs[this_task_indices, :] 
-            this_dataset_x[num_this_task:] = stroop_inputs[other_task_indices, :] 
-        else:
-            this_dataset_y = task_data
-            this_dataset_x = stroop_inputs 
+            this_dataset_x[num_this_task:8] = stroop_inputs[other_task_indices, :] 
+            this_dataset_y[8:] = task_data
+
 
         feed_dict[self.base_input_ph] = this_dataset_x 
         feed_dict[self.base_target_ph] = this_dataset_y
@@ -163,8 +167,13 @@ class stroop_model(HoMM_model.HoMM_model):
                 len(stroop_inputs))
         else:
             feed_dict[self.keep_prob_ph] = 1.
-            feed_dict[self.guess_input_mask_ph] = np.ones(len(stroop_inputs), 
-                                                          dtype=np.bool) 
+            if mix_num == 0:
+                feed_dict[self.guess_input_mask_ph] = np.ones(len(stroop_inputs), 
+                                                              dtype=np.bool) 
+            else:
+                feed_dict[self.guess_input_mask_ph] = np.zeros(12, 
+                                                               dtype=np.bool) 
+                feed_dict[self.guess_input_mask_ph][-4:] = True
 
         return feed_dict
 
@@ -258,7 +267,7 @@ class stroop_model(HoMM_model.HoMM_model):
             if epoch % eval_every == 0:
                 scores = self.run_eval(epoch)
                 words_learned = scores[0] < run_config["early_stopping_thresh"] and scores[1] == 1.
-                colors_learned = scores[4] < run_config["early_stopping_thresh"] and scores[5] == 1.
+                colors_learned = scores[20] < run_config["early_stopping_thresh"] and scores[21] == 1.
                 if (words_learned and colors_learned) or (words_learned and word_only) or (colors_learned and color_only):
                     print("Early stop!")
                     break
@@ -270,7 +279,7 @@ class stroop_model(HoMM_model.HoMM_model):
 
 ## running stuff
 for run_i in range(run_config["num_runs"]):
-    for pwt in [0.5, 0.9, 0.1]:
+    for pwt in [0.5, 0.9, 0.1, 1., 0., 0.95, 0.05]:
         run_config["proportion_word_training"] = pwt
         run_config["output_dir"] = run_config["output_dir_format"] % run_config["proportion_word_training"]
         np.random.seed(run_i)
