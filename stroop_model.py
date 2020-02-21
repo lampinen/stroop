@@ -27,7 +27,7 @@ incongruent_stimuli = [1, 2]
 
 run_config = default_run_config.default_run_config
 run_config.update({
-    "output_dir_format": "stroop_mixing_results_wider_earlier_pw_%.2f/",
+    "output_dir_format": "stroop_mixing_results_narrower_earlier_pw_%.2f/",
 
     "train_meta": False,
 
@@ -48,7 +48,7 @@ architecture_config.update({
     "input_shape": [4],
     "output_shape": [2],
 
-    "z_dim": 32,
+    "z_dim": 8,
 
     "M_num_hidden": 64,
     "H_num_hidden": 64,
@@ -279,7 +279,7 @@ class stroop_model(HoMM_model.HoMM_model):
 
 ## running stuff
 for run_i in range(run_config["num_runs"]):
-    for pwt in [0.5, 0.9, 0.1, 1., 0., 0.95, 0.05]:
+    for pwt in [0., 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1.]:
         run_config["proportion_word_training"] = pwt
         run_config["output_dir"] = run_config["output_dir_format"] % run_config["proportion_word_training"]
         np.random.seed(run_i)
